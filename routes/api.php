@@ -6,6 +6,8 @@ use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\FiltersController;
 use App\Http\Controllers\SchoolsController;
 use App\Http\Controllers\EmailController;
+use Illuminate\Support\Facades\Artisan;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -22,6 +24,12 @@ use App\Http\Controllers\EmailController;
 // });
 
 Route::group(['middleware' => 'XSS'], function () {
+
+    //storage link
+    Route::get('/storageLink', function () {
+        Artisan::call('storage:link');
+    });
+
     // Partner interest
     Route::post('partnerInterest', [EmailController::class, 'partnerInterest']);
 
