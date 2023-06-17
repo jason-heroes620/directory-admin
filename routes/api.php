@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\FiltersController;
 use App\Http\Controllers\SchoolsController;
+use App\Http\Controllers\LocationsController;
 use App\Http\Controllers\EmailController;
 use Illuminate\Support\Facades\Artisan;
 
@@ -32,10 +33,13 @@ Route::group(['middleware' => 'XSS'], function () {
 
     // Partner interest
     Route::post('partnerInterest', [EmailController::class, 'partnerInterest']);
+    Route::post('schoolInterest', [EmailController::class, 'schoolInterest']);
 
     Route::get('categories', [CategoriesController::class, 'categories']);
     Route::get('filters', [FiltersController::class, 'filters']);
 
-    Route::get('schools', [SchoolsController::class, 'schools']);
-    Route::get('schools/:id', [SchoolsController::class, 'getSchoolById']);
+    Route::get('schools/{id?}', [SchoolsController::class, 'schools']);
+    Route::post('schools/filters', [SchoolsController::class, 'filters']);
+
+    Route::get('locations', [LocationsController::class, 'locations']);
 });

@@ -20,6 +20,16 @@ class EmailController extends Controller
             return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
         }
     }
+    public function schoolInterest(Request $request)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $post = $request->post();
+            $result = $this->sendSchoolInterestEmail($post);
+            return $this->sendResponse($result, '');
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
 
     private function sendEmail($post)
     {
@@ -36,6 +46,31 @@ class EmailController extends Controller
                 $message->to("partner@heroes.my")
                     ->subject($data["subject"]);
             });
+            return 'successful';
+        } catch (Exception $ex) {
+            return 'failed: ' . $ex;
+        }
+    }
+
+    private function sendSchoolInterestEmail($post)
+    {
+        $data['email'] = $post['email'];
+        // $data['subject'] = "Heroes Directory School Inquiry Form";
+        $data['lastName'] = $post['lastName'];
+        $data['firstName'] = $post['firstName'];
+        $data['messages'] = $post['message'];
+
+
+        try {
+            $emails = array();
+            foreach ($post['toEmail'] as $email) {
+                array_push($emails, $email);
+            }
+
+            // Mail::send('schoolInterestEmail', $data, function ($message) use ($emails) {
+            //     $message->to($emails)
+            //         ->subject("Heroes Directory School Inquiry Form");
+            // });
             return 'successful';
         } catch (Exception $ex) {
             return 'failed: ' . $ex;
