@@ -54,15 +54,11 @@ class SchoolsController extends Controller
         foreach ($results as $result) {
             $school['school_id'] = $result->school_id;
             $school['school'] = $result->school;
-            $school['description'] = $result->description;
             $school['logo'] = $this->url . '/' . $result->logo;
-            $school['min_fee'] = $result->min_fee;
-            $school['max_fee'] = $result->max_fee;
 
             $school['contacts'] = DB::table('contacts')
                 ->where('school_id', '=', $result->school_id)
                 ->where('status', '=', 0)
-                ->orderBy('main')
                 ->get();
 
             $school['social_links'] = DB::table('social_links')
@@ -86,33 +82,39 @@ class SchoolsController extends Controller
     private function getSchoolById($schoolId)
     {
         $results = DB::table('schools')
-            ->leftJoin("additional_classes", 'additional_classes.school_id', '=', 'schools.school_id')
-            ->leftJoin("facilities", 'facilities.school_id', '=', 'schools.school_id')
-            ->leftJoin("curriculums", 'curriculums.school_id', '=', 'schools.school_id')
-            ->leftJoin("learning_focus", 'learning_focus.school_id', '=', 'schools.school_id')
-            ->where('schools.school_id', '=', $schoolId)
+            ->where('school_id', '=', $schoolId)
             ->get();
 
         foreach ($results as $res) {
             $school['school'] = $res->school;
-            $school['description'] = $res->description;
             $school['logo'] = ($res->logo != '' ? $this->url . '/' . $res->logo : '');
             $school['banner'] = ($res->banner != '' ? $this->url . '/' . $res->banner : '');
-            $school['min_fee'] = $res->min_fee;
-            $school['max_fee'] = $res->max_fee;
-            $school['mission'] = $res->mission;
-            $school['operating_hours'] = $res->operating_hours;
-            $school['schedule'] = $res->schedule;
-            $school['fees'] = $res->fees;
-            $school['additional_class'] = $res->additional_class;
-            $school['facility'] = $res->facility;
-            $school['curriculum'] = $res->curriculum;
-            $school['learning_focus'] = $res->learning_focus;
+
+
+            $descriptions = DB::table('descriptions')
+                ->leftJoin('schools_descriptions', 'schools_descriptions.description_id', '=', 'descriptions.description_id')
+                ->where("school_id", '=', $res->school_id)
+                ->get();
+            foreach ($descriptions as $desc) {
+                $school['description'] = $desc->description;
+                $school['min_fee'] = $desc->min_fee;
+                $school['max_fee'] = $desc->max_fee;
+                $school['mission'] = $desc->mission;
+                $school['operating_hours'] = $desc->operating_hours;
+                $school['level_of_education'] = $desc->level_of_education;
+                $school['schedule'] = $desc->schedule;
+                $school['fees'] = $desc->fees;
+                $school['additional_class'] = $desc->additional_class;
+                $school['facility'] = $desc->facility;
+                $school['curriculum'] = $desc->curriculum;
+                $school['learning_focus'] = $desc->learning_focus;
+            }
         }
 
         $res = DB::table('images')
             ->where('school_id', '=', $schoolId)
             ->get();
+
         $images = array();
         foreach ($res as $r) {
             $image['image_id'] = $r->image_id;
@@ -130,6 +132,7 @@ class SchoolsController extends Controller
             ->where('school_id', '=', $schoolId)
             ->where('status', '=', 0)
             ->get();
+
         $contacts = array();
         foreach ($res as $r) {
             $contact['contact_id'] = $r->contact_id;
@@ -148,7 +151,7 @@ class SchoolsController extends Controller
                     '=',
                     'social_link_types.social_link_type_id'
                 )
-                ->where('social_links.contact_id', '=', $r->contact_id)
+                ->where('social_links.school_id', '=', $schoolId)
                 ->orderBy('social_link_types.orders')
                 ->get(['social_links.social_link_id', 'social_links.social_link', 'social_link_types.type']);
             $socialLinks = array();
@@ -165,7 +168,7 @@ class SchoolsController extends Controller
             $socialLinks = array();
 
             $email_results = DB::table('emails')
-                ->where('contact_id', '=', $r->contact_id)
+                ->where('school_id', '=', $schoolId)
                 ->where('status', '=', 0)
                 ->get(['email_id', 'email']);
             $emails = array();
@@ -184,6 +187,7 @@ class SchoolsController extends Controller
         }
         $school['contacts'] = $contacts;
 
+        $locations = array();
         $res = DB::table('locations')
             ->where('school_id', '=', $schoolId)
             ->get(['school_id', 'location_id', 'lng', 'lat', 'google_map_query', 'location_data']);
