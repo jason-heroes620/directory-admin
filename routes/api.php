@@ -38,8 +38,9 @@ Route::group(['middleware' => 'XSS'], function () {
     Route::get('categories', [CategoriesController::class, 'categories']);
     Route::get('filters', [FiltersController::class, 'filters']);
 
-    Route::get('schools/{id?}', [SchoolsController::class, 'schools']);
-    Route::post('schools/filters', [SchoolsController::class, 'filters']);
+    Route::get('schools/page/{page?}', [SchoolsController::class, 'schools']);
+    Route::get('schoolById/{id?}', [SchoolsController::class, 'schoolById']);
+    Route::post('schools/filters/page/{page?}', [SchoolsController::class, 'filters']);
 
     Route::get('locations', [LocationsController::class, 'locations']);
 });

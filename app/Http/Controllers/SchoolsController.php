@@ -21,12 +21,20 @@ class SchoolsController extends Controller
     public function schools(Request $req)
     {
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $data = $this->getAllSchools($req->page);
+
+            return $this->sendResponse($data, 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
+        }
+    }
+
+    public function schoolById(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             if (isset($req->id)) {
                 $data = $this->getSchoolById($req->id);
-            } else {
-                $data = $this->getAllSchools();
             }
-
             return $this->sendResponse($data, 200);
         } else {
             return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
@@ -36,7 +44,8 @@ class SchoolsController extends Controller
     public function filters(Request $req)
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $data = $this->getFilterResult($req->post());
+            $page = $req->page;
+            $data = $this->getFilterResult($req->post(), $page);
 
             return $this->sendResponse($data, 200);
         } else {
@@ -44,12 +53,19 @@ class SchoolsController extends Controller
         }
     }
 
-    private function getAllSchools()
+    private function getAllSchools($page)
     {
-        $results = DB::table('schools')
-            ->where('status', '=', 0)
-            ->orderBy('school')
+        $perPage = 10;
+
+        $query = DB::table('schools')
+            ->where('status', '=', 0);
+
+        $total = $query->count();
+
+        $results = $query->orderBy('school')
+            ->offset($page * $perPage)->limit($perPage)
             ->get();
+
 
         foreach ($results as $result) {
             $school['school_id'] = $result->school_id;
@@ -73,10 +89,30 @@ class SchoolsController extends Controller
                 ->orderBy('social_link_types.orders')
                 ->get(['social_links.social_link', 'social_link_types.type']);
 
+            $res = DB::table('locations')
+                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->where("schools.school_id", '=', $result->school_id)
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat']);
+            foreach ($res as $r) {
+                $location['school_id'] = $r->school_id;
+                $location['school'] = $r->school;
+                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
+
+                $locations[] = $location;
+            }
             $schools[] = $school;
         }
 
-        return $schools;
+        $records = ($page == 0 ? $page + 1 : ($page * $perPage) + 1) . " - " .
+            (($page * $perPage) + $perPage > $total ? $total : ($page * $perPage) + $perPage);
+
+        return [
+            'total' => $total,
+            'data' => ['schools' => $schools, 'locations' => $locations],
+            'page' => $page,
+            'last_page' => ceil($total / $perPage),
+            'records' => $records
+        ];
     }
 
     private function getSchoolById($schoolId)
@@ -90,9 +126,13 @@ class SchoolsController extends Controller
             $school['logo'] = ($res->logo != '' ? $this->url . '/' . $res->logo : '');
             $school['banner'] = ($res->banner != '' ? $this->url . '/' . $res->banner : '');
 
-
             $descriptions = DB::table('descriptions')
-                ->leftJoin('schools_descriptions', 'schools_descriptions.description_id', '=', 'descriptions.description_id')
+                ->leftJoin(
+                    'schools_descriptions',
+                    'schools_descriptions.description_id',
+                    '=',
+                    'descriptions.description_id'
+                )
                 ->where("school_id", '=', $res->school_id)
                 ->get();
             foreach ($descriptions as $desc) {
@@ -203,37 +243,38 @@ class SchoolsController extends Controller
 
         $school['locations'] = $locations;
 
-
         return $school;
     }
 
-    private function getFilterResult($filters)
+    private function getFilterResult($filters, $page)
     {
+        $perPage = 10;
         $schools = array();
         $locations = array();
 
-        $query = DB::table('schools')
-            ->join('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id');
+        $query = DB::table('schools');
 
         if (!empty($filters)) {
-            if ($filters['category'] !== '0') {
-
-                $query->where('schools_categories.category_id', '=', $filters['category']);
+            if ($filters['category'] !== '0' && $filters['category'] != '') {
+                $query->join('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                    ->where('schools_categories.category_id', '=', $filters['category'])
+                    ->where('schools.status', '=', 0);
+            } else {
+                $query->where('status', '=', 0);
             }
         }
 
+        $total = $query->count();
+
         $results = $query
-            ->where('schools.status', '=', 0)
             ->orderBy('schools.school')
+            ->offset($page * $perPage)->limit($perPage)
             ->get();
 
         foreach ($results as $result) {
             $school['school_id'] = $result->school_id;
             $school['school'] = $result->school;
-            $school['description'] = $result->description;
             $school['logo'] = $this->url . '/' . $result->logo;
-            $school['min_fee'] = $result->min_fee;
-            $school['max_fee'] = $result->max_fee;
 
             $school['contacts'] = DB::table('contacts')
                 ->where('school_id', '=', $result->school_id)
@@ -267,6 +308,15 @@ class SchoolsController extends Controller
             $schools[] = $school;
         }
 
-        return array('schools' => $schools, 'locations' => $locations);
+        $records = ($page == 0 ? $page + 1 : ($page * $perPage) + 1) . " - " .
+            (($page * $perPage) + $perPage > $total ? $total : ($page * $perPage) + $perPage);
+
+        return [
+            'total' => $total,
+            'data' => ['schools' => $schools, 'locations' => $locations],
+            'page' => $page,
+            'last_page' => ceil($total / $perPage),
+            'records' => $records
+        ];
     }
 }
