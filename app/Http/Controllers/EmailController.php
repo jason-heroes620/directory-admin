@@ -67,10 +67,10 @@ class EmailController extends Controller
                 array_push($emails, $email);
             }
 
-            // Mail::send('schoolInterestEmail', $data, function ($message) use ($emails) {
-            //     $message->to($emails)
-            //         ->subject("Heroes Directory School Inquiry Form");
-            // });
+            Mail::send('schoolInterestEmail', $data, function ($message) use ($emails) {
+                $message->to($emails)
+                    ->subject("Heroes Directory School Inquiry Form");
+            });
             return 'successful';
         } catch (Exception $ex) {
             return 'failed: ' . $ex;

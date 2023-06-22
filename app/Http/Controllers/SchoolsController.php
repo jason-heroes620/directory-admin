@@ -91,11 +91,14 @@ class SchoolsController extends Controller
 
             $res = DB::table('locations')
                 ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
                 ->where("schools.school_id", '=', $result->school_id)
-                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat']);
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
             foreach ($res as $r) {
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
+                $location['color'] = $r->color;
                 $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
 
                 $locations[] = $location;
@@ -163,10 +166,15 @@ class SchoolsController extends Controller
         }
         $school['images'] = $images;
 
-        $school['categories'] = DB::table('schools_categories')
-            ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
-            ->where('schools_categories.school_id', '=', $schoolId)
-            ->get('category');
+        // $school['categories'] = DB::table('schools_categories')
+        //     ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
+        //     ->where('schools_categories.school_id', '=', $schoolId)
+        //     ->get('category');
+        $school['sub_categories'] = DB::table('schools_sub_categories')
+            ->leftJoin('sub_categories', 'sub_categories.sub_category_id', '=', 'schools_sub_categories.sub_category_id')
+            ->where('schools_sub_categories.school_id', '=', $schoolId)
+            ->get('sub_categories.sub_category');
+
 
         $res = DB::table('contacts')
             ->where('school_id', '=', $schoolId)
@@ -295,11 +303,14 @@ class SchoolsController extends Controller
 
             $res = DB::table('locations')
                 ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
                 ->where("schools.school_id", '=', $result->school_id)
-                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat']);
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
             foreach ($res as $r) {
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
+                $location['color'] = $r->color;
                 $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
 
                 $locations[] = $location;
