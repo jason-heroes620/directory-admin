@@ -60,6 +60,25 @@ class SchoolsController extends Controller
         $query = DB::table('schools')
             ->where('status', '=', 0);
 
+        $locationResult = $query->get();
+        foreach ($locationResult as $r) {
+            $res = DB::table('locations')
+                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
+                ->where("schools.school_id", '=', $r->school_id)
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
+
+            foreach ($res as $r) {
+                $location['school_id'] = $r->school_id;
+                $location['school'] = $r->school;
+                $location['color'] = $r->color;
+                $location['position'] = array('lng' => floatval($r->lng), 'lat' => floatval($r->lat));
+
+                $locations[] = $location;
+            }
+        }
+
         $total = $query->count();
 
         $results = $query->orderBy('school')
@@ -89,20 +108,6 @@ class SchoolsController extends Controller
                 ->orderBy('social_link_types.orders')
                 ->get(['social_links.social_link', 'social_link_types.type']);
 
-            $res = DB::table('locations')
-                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
-                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
-                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
-                ->where("schools.school_id", '=', $result->school_id)
-                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
-            foreach ($res as $r) {
-                $location['school_id'] = $r->school_id;
-                $location['school'] = $r->school;
-                $location['color'] = $r->color;
-                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
-
-                $locations[] = $location;
-            }
             $schools[] = $school;
         }
 
@@ -272,6 +277,24 @@ class SchoolsController extends Controller
             }
         }
 
+        $locationResult = $query->get();
+        foreach ($locationResult as $result) {
+            $res = DB::table('locations')
+                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
+                ->where("schools.school_id", '=', $result->school_id)
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
+            foreach ($res as $r) {
+                $location['school_id'] = $r->school_id;
+                $location['school'] = $r->school;
+                $location['color'] = $r->color;
+                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
+
+                $locations[] = $location;
+            }
+        }
+
         $total = $query->count();
 
         $results = $query
@@ -300,21 +323,6 @@ class SchoolsController extends Controller
                 ->where('social_links.school_id', '=', $result->school_id)
                 ->orderBy('social_link_types.orders')
                 ->get(['social_links.social_link', 'social_link_types.type']);
-
-            $res = DB::table('locations')
-                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
-                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
-                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
-                ->where("schools.school_id", '=', $result->school_id)
-                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
-            foreach ($res as $r) {
-                $location['school_id'] = $r->school_id;
-                $location['school'] = $r->school;
-                $location['color'] = $r->color;
-                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
-
-                $locations[] = $location;
-            }
 
             $schools[] = $school;
         }
