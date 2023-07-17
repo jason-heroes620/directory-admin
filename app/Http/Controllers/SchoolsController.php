@@ -83,7 +83,7 @@ class SchoolsController extends Controller
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
                 $location['color'] = $r->color;
-                $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
+                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
                 $location['lat'] = $r->lat;
                 $location['lng'] = $r->lng;
 
