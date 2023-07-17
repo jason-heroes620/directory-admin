@@ -21,7 +21,7 @@ class SchoolsController extends Controller
     public function schools(Request $req)
     {
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $data = $this->getAllSchools($req->page);
+            $data = $this->getAllSchools($req->page, htmlspecialchars_decode($req->search));
 
             return $this->sendResponse($data, 200);
         } else {
@@ -45,7 +45,8 @@ class SchoolsController extends Controller
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $page = $req->page;
-            $data = $this->getFilterResult($req->post(), $page);
+            $search = htmlspecialchars_decode($req->search);
+            $data = $this->getFilterResult($req->post(), $page, $search);
 
             return $this->sendResponse($data, 200);
         } else {
@@ -53,12 +54,16 @@ class SchoolsController extends Controller
         }
     }
 
-    private function getAllSchools($page)
+    private function getAllSchools($page, $search)
     {
         $perPage = 10;
 
         $query = DB::table('schools')
             ->where('status', '=', 0);
+
+        if ($search != '') {
+            $query = $query->where("schools.school", '=', $search);
+        }
 
         $locationResult = $query->get();
         foreach ($locationResult as $r) {
@@ -73,7 +78,9 @@ class SchoolsController extends Controller
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
                 $location['color'] = $r->color;
-                $location['position'] = array('lng' => floatval($r->lng), 'lat' => floatval($r->lat));
+                $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
+                $location['lat'] = $r->lat;
+                $location['lng'] = $r->lng;
 
                 $locations[] = $location;
             }
@@ -84,7 +91,6 @@ class SchoolsController extends Controller
         $results = $query->orderBy('school')
             ->offset($page * $perPage)->limit($perPage)
             ->get();
-
 
         foreach ($results as $result) {
             $school['school_id'] = $result->school_id;
@@ -240,32 +246,29 @@ class SchoolsController extends Controller
         }
         $school['contacts'] = $contacts;
 
-        $locations = array();
         $res = DB::table('locations')
             ->where('school_id', '=', $schoolId)
-            ->get(['school_id', 'location_id', 'lng', 'lat', 'google_map_query', 'location_data']);
+            ->limit(1)
+            ->get(['location_id', 'iframeSrc']);
         foreach ($res as $r) {
-            $location['location_id'] = $r->location_id;
-            $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
-            $location['lat'] = (float)$r->lat;
-            $location['lng'] = (float)$r->lng;
-            $location['google_map_query'] = $r->google_map_query;
-            $location['location_data'] = $r->location_data;
-            $locations[] = $location;
+            $school['location_id'] = $r->location_id;
+            $school['iframeSrc'] = $r->iframeSrc;
         }
-
-        $school['locations'] = $locations;
 
         return $school;
     }
 
-    private function getFilterResult($filters, $page)
+    private function getFilterResult($filters, $page, $search)
     {
         $perPage = 10;
         $schools = array();
         $locations = array();
 
         $query = DB::table('schools');
+
+        if ($search != '') {
+            $query = $query->where('schools.school', '=', $search);
+        }
 
         if (!empty($filters)) {
             if ($filters['category'] !== '0' && $filters['category'] != '') {
