@@ -45,7 +45,7 @@ class SchoolsController extends Controller
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $page = $req->page;
-            if (!isEmptyOrNullString($req->search)) {
+            if (!empty($req->search)) {
                 $search = htmlspecialchars_decode($req->search);
             } else {
                 $search = '';
