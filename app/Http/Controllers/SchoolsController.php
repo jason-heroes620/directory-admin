@@ -45,7 +45,12 @@ class SchoolsController extends Controller
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $page = $req->page;
-            $search = htmlspecialchars_decode($req->search);
+            if (!isEmptyOrNullString($req->search)) {
+                $search = htmlspecialchars_decode($req->search);
+            } else {
+                $search = '';
+            }
+
             $data = $this->getFilterResult($req->post(), $page, $search);
 
             return $this->sendResponse($data, 200);
