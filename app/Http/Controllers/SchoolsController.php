@@ -257,6 +257,7 @@ class SchoolsController extends Controller
         foreach ($res as $r) {
             $school['location_id'] = $r->location_id;
             $school['iframeSrc'] = $r->iframeSrc;
+            $location['location_id'] = $r->location_id;
             $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
             $location['lat'] = $r->lat;
             $location['lng'] = $r->lng;
