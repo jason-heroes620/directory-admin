@@ -246,7 +246,6 @@ class SchoolsController extends Controller
             $contact['emails'] = $emails;
             $emails = array();
 
-
             $contacts[] = $contact;
         }
         $school['contacts'] = $contacts;
@@ -263,7 +262,10 @@ class SchoolsController extends Controller
             $location['lng'] = $r->lng;
             $location['google_map_query'] = $r->google_map_query;
             $location['location_data'] = $r->location_data;
+
+            $locations[] = $location;
         }
+        $school['locations'] = $locations;
 
         return $school;
     }
