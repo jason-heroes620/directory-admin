@@ -259,8 +259,8 @@ class SchoolsController extends Controller
             $school['iframeSrc'] = $r->iframeSrc;
             $location['location_id'] = $r->location_id;
             $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
-            $location['lat'] = $r->lat;
-            $location['lng'] = $r->lng;
+            $location['lat'] = (float)$r->lat;
+            $location['lng'] = (float)$r->lng;
             $location['google_map_query'] = $r->google_map_query;
             $location['location_data'] = $r->location_data;
 
