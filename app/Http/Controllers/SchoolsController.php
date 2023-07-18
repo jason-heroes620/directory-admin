@@ -254,7 +254,7 @@ class SchoolsController extends Controller
         $res = DB::table('locations')
             ->where('school_id', '=', $schoolId)
             ->limit(1)
-            ->get(['location_id', 'iframeSrc', 'lng', 'lat', 'google_map_query', 'location_date']);
+            ->get(['location_id', 'iframeSrc', 'lng', 'lat', 'google_map_query', 'location_data']);
         foreach ($res as $r) {
             $school['location_id'] = $r->location_id;
             $school['iframeSrc'] = $r->iframeSrc;
@@ -262,7 +262,7 @@ class SchoolsController extends Controller
             $location['lat'] = $r->lat;
             $location['lng'] = $r->lng;
             $location['google_map_query'] = $r->google_map_query;
-            $location['location_date'] = $r->location_date;
+            $location['location_data'] = $r->location_data;
         }
 
         return $school;
