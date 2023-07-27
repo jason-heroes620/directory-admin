@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Descriptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\Database\Query\JoinClause;
 use App\Models\Schools;
 use App\Models\SocialLinks;
@@ -83,7 +87,7 @@ class SchoolsController extends Controller
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
                 $location['color'] = $r->color;
-                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
+                $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
                 $location['lat'] = $r->lat;
                 $location['lng'] = $r->lng;
 
@@ -167,6 +171,9 @@ class SchoolsController extends Controller
                 $school['facility'] = $desc->facility;
                 $school['curriculum'] = $desc->curriculum;
                 $school['learning_focus'] = $desc->learning_focus;
+                $school['class_size'] = $desc->class_size;
+                $school['centre_size'] = $desc->centre_size;
+                $school['medium_communication'] = $desc->medium_communication;
             }
         }
 
@@ -182,15 +189,15 @@ class SchoolsController extends Controller
         }
         $school['images'] = $images;
 
-        // $school['categories'] = DB::table('schools_categories')
-        //     ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
-        //     ->where('schools_categories.school_id', '=', $schoolId)
-        //     ->get('category');
         $school['sub_categories'] = DB::table('schools_sub_categories')
-            ->leftJoin('sub_categories', 'sub_categories.sub_category_id', '=', 'schools_sub_categories.sub_category_id')
+            ->leftJoin(
+                'sub_categories',
+                'sub_categories.sub_category_id',
+                '=',
+                'schools_sub_categories.sub_category_id'
+            )
             ->where('schools_sub_categories.school_id', '=', $schoolId)
             ->get('sub_categories.sub_category');
-
 
         $res = DB::table('contacts')
             ->where('school_id', '=', $schoolId)
@@ -250,6 +257,7 @@ class SchoolsController extends Controller
         }
         $school['contacts'] = $contacts;
 
+        $locations = [];
         $res = DB::table('locations')
             ->where('school_id', '=', $schoolId)
             ->limit(1)
@@ -305,7 +313,9 @@ class SchoolsController extends Controller
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
                 $location['color'] = $r->color;
-                $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
+                $location['lng'] = $r->lng;
+                $location['lat'] = $r->lat;
+                $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
 
                 $locations[] = $location;
             }
@@ -353,5 +363,176 @@ class SchoolsController extends Controller
             'last_page' => ceil($total / $perPage),
             'records' => $records
         ];
+    }
+
+    public function addSchoolBasic(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $uuid = $this->createUUID();
+            $data = $req->post();
+            $this->addSchoolBasicInfo($req->post(), $uuid);
+            // $file = $req->file('logoCompressed');
+            $folder = $this->checkIfFolderExist($data['category'], $uuid);
+            if (!empty($req->file('logoCompressed'))) {
+                $path = $req->file('logoCompressed')->store($folder[0]);
+                $logoFileName = explode('/', $path);
+                // /print_r(end($logoFileName));
+                $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
+            }
+            return $this->sendResponse(['uuid' => $uuid], 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
+
+    private function addSchoolBasicInfo($info, $uuid)
+    {
+        // insert into schools
+        $result = DB::insert('insert into schools
+        (school_id, school, logo, banner, status) values (?, ?, ?, ?, ?)', [$uuid, $info['school'], '', '', 1]);
+
+        // insert categories
+        $result = DB::insert('insert into schools_categories
+        (school_id, category_id) values(?, ?)', [$uuid, $info['category']]);
+
+        // insert subcategories
+        if (!empty($info['subcategory'])) {
+            $result = DB::insert('insert into schools_sub_categories
+            (school_id, sub_category_id) values(?, ?)', [$uuid, $info['subcategory']]);
+        }
+        // insert contacts
+        $result = DB::insert(
+            'insert into contacts
+            (school_id, address1, address2, address3, city, postcode, state, country, contact_person, contact_no)
+            values(?,?,?,?,?,?,?,?,?,?)',
+            [
+                $uuid, $this->checkEmptyValue($info['address1']),
+                $this->checkEmptyValue($info['address2']),
+                $this->checkEmptyValue($info['address3']),
+                $this->checkEmptyValue($info['city']),
+                $this->checkEmptyValue($info['postcode']),
+                $this->checkEmptyValue($info['state']),
+                $this->checkEmptyValue($info['country']),
+                $this->checkEmptyValue($info['contact_person']),
+                $this->checkEmptyValue($info['contact_no'])
+            ]
+        );
+
+        // insert email
+        if (!empty($info['email'])) {
+            $result = DB::insert('insert into emails (school_id, email)
+            values(?,?)', [$uuid, $info['email']]);
+        }
+    }
+
+    private function updateLogoPath($uuid, $path)
+    {
+        $result = DB::update('update schools set logo = ? where school_id = ?', [$path, $uuid]);
+    }
+
+    private function createUUID()
+    {
+        return (string) Str::uuid();
+    }
+
+    private function checkEmptyValue($val)
+    {
+        return empty($val) ? '' : $val;
+    }
+
+    private function checkIfFolderExist($category, $uuid)
+    {
+        $folder = '';
+        switch ($category) {
+            case 1:
+                $folder = 'schools';
+                break;
+            case 2:
+                $folder = 'schools';
+                break;
+            case 3:
+                $folder = 'learning_centres';
+                break;
+            case 4:
+                $folder = 'tuition_centres';
+                break;
+            case 6:
+                $folder = 'taska';
+                break;
+            default:
+                break;
+        }
+        $directory = 'public/images/' . $folder . '/' . $uuid;
+        $filePath = 'public/storage/images/' . $folder . '/' . $uuid;
+        $path = storage_path($directory);
+        //print_r($path);
+        if (!File::isDirectory($path)) {
+            File::makeDirectory($path, 0755, true);
+        }
+
+        return [$directory, $filePath];
+    }
+
+    public function addSchoolDescription(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->addSchoolDescriptionInfo($req->post());
+            return $this->sendResponse('', 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
+
+    private function addSchoolDescriptionInfo($info)
+    {
+        print_r($info['description']);
+        $descr = new Descriptions;
+        $descr->description = $info['description'];
+        $descr->mission = $info['mission'];
+        $descr->operating_hours = empty($info['operating_hours']) ? '' : $info['operating_hours'];
+        $descr->additional_class = empty($info['additional_class']) ? '' : nl2br($info['additional_class']);
+        $descr->curriculum = empty($info['curriculum']) ? '' : $info['curriculum'];
+        $descr->facility = empty($info['facility']) ? '' : $info['facility'];
+        $descr->learning_focus = empty($info['learning_focus']) ? '' : $info['learning_focus'];
+        $descr->operating_hours = empty($info['operating_hours']) ? '' : $info['operating_hours'];
+        $descr->level_of_education = empty($info['level_of_education']) ? '' : $info['level_of_education'];
+        $descr->schedule = empty($info['schedule']) ? '' : $info['schedule'];
+        $descr->fees = empty($info['fees']) ? '' : $info['fees'];
+        $descr->min_fee = empty($info['min_fee']) ? 0 : $info['min_fee'];
+        $descr->max_fee = empty($info['max_fee']) ? 0 : $info['max_fee'];
+        $descr->class_size = empty($info['class_size']) ? '' : $info['class_size'];
+        $descr->centre_size = empty($info['centre_size']) ? '' : $info['centre_size'];
+        $descr->medium_communication = empty($info['medium_communication']) ? '' : $info['medium_communication'];
+
+        $descr->save();
+
+        $query = DB::insert(
+            'insert into schools_descriptions (school_id, description_id) values(?,?)',
+            [$info['uuid'], $descr->id]
+        );
+    }
+
+    public function addSchoolSocialLinks(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = $this->addSchoolSocialLinksInfo($req->post());
+            return $this->sendResponse($data, 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
+
+    private function addSchoolSocialLinksInfo($infos)
+    {
+        $uuid = $infos['uuid'];
+        foreach ($infos as $key => $val) {
+            if (!empty($val) && $key != 'uuid') {
+                $r = DB::table('social_link_types')->where('type', '=', $key)->get(['social_link_type_id']);
+                $id = $r[0]->social_link_type_id;
+                print_r($id);
+
+                $query = DB::insert('insert into social_links (school_id, social_link, social_link_type) values (?,?,?)', [$uuid, $val, $id]);
+            }
+        }
     }
 }
