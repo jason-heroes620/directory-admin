@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Database\Query\JoinClause;
 use App\Models\Schools;
 use App\Models\SocialLinks;
+use App\Models\Locations;
 use Ramsey\Uuid\Type\Decimal;
 
 class SchoolsController extends Controller
@@ -370,16 +371,18 @@ class SchoolsController extends Controller
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uuid = $this->createUUID();
             $data = $req->post();
-            $this->addSchoolBasicInfo($req->post(), $uuid);
-            // $file = $req->file('logoCompressed');
-            $folder = $this->checkIfFolderExist($data['category'], $uuid);
-            if (!empty($req->file('logoCompressed'))) {
-                $path = $req->file('logoCompressed')->store($folder[0]);
-                $logoFileName = explode('/', $path);
-                // /print_r(end($logoFileName));
-                $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
+            $exist = $this->addSchoolBasicInfo($req->post(), $uuid);
+            if (!$exist) {
+                $folder = $this->checkIfFolderExist($data['category'], $uuid);
+                if (!empty($req->file('logoCompressed'))) {
+                    $path = $req->file('logoCompressed')->store($folder[0]);
+                    $logoFileName = explode('/', $path);
+                    $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
+                }
+                return $this->sendResponse(['uuid' => $uuid], 200);
+            } else {
+                return $this->sendError('', ['error' => 'School already exist.'], 400);
             }
-            return $this->sendResponse(['uuid' => $uuid], 200);
         } else {
             return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
         }
@@ -387,41 +390,54 @@ class SchoolsController extends Controller
 
     private function addSchoolBasicInfo($info, $uuid)
     {
-        // insert into schools
-        $result = DB::insert('insert into schools
+        // check if school name exist
+
+        $exist = DB::table('schools')
+            ->where('school', $info['school'])
+            ->get();
+
+        if ($exist->count() > 0) {
+            return true;
+        } else {
+            $result = DB::insert('insert into schools
         (school_id, school, logo, banner, status) values (?, ?, ?, ?, ?)', [$uuid, $info['school'], '', '', 1]);
 
-        // insert categories
-        $result = DB::insert('insert into schools_categories
+            // insert categories
+            if ($info['category'] != '0') {
+                $result = DB::insert('insert into schools_categories
         (school_id, category_id) values(?, ?)', [$uuid, $info['category']]);
+            }
 
-        // insert subcategories
-        if (!empty($info['subcategory'])) {
-            $result = DB::insert('insert into schools_sub_categories
+            // insert subcategories
+            if ($info['subcategory'] != '0') {
+                $result = DB::insert('insert into schools_sub_categories
             (school_id, sub_category_id) values(?, ?)', [$uuid, $info['subcategory']]);
-        }
-        // insert contacts
-        $result = DB::insert(
-            'insert into contacts
+            }
+            // insert contacts
+            $result = DB::insert(
+                'insert into contacts
             (school_id, address1, address2, address3, city, postcode, state, country, contact_person, contact_no)
             values(?,?,?,?,?,?,?,?,?,?)',
-            [
-                $uuid, $this->checkEmptyValue($info['address1']),
-                $this->checkEmptyValue($info['address2']),
-                $this->checkEmptyValue($info['address3']),
-                $this->checkEmptyValue($info['city']),
-                $this->checkEmptyValue($info['postcode']),
-                $this->checkEmptyValue($info['state']),
-                $this->checkEmptyValue($info['country']),
-                $this->checkEmptyValue($info['contact_person']),
-                $this->checkEmptyValue($info['contact_no'])
-            ]
-        );
+                [
+                    $uuid, $this->checkEmptyValue($info['address1']),
+                    $this->checkEmptyValue($info['address2']),
+                    $this->checkEmptyValue($info['address3']),
+                    $this->checkEmptyValue($info['city']),
+                    $this->checkEmptyValue($info['postcode']),
+                    $this->checkEmptyValue($info['state']),
+                    $this->checkEmptyValue($info['country']),
+                    $this->checkEmptyValue($info['contact_person']),
+                    $this->checkEmptyValue($info['contact_no'])
+                ]
+            );
 
-        // insert email
-        if (!empty($info['email'])) {
-            $result = DB::insert('insert into emails (school_id, email)
+            // insert email
+            if (!empty($info['email'])) {
+                $result = DB::insert('insert into emails (school_id, email)
             values(?,?)', [$uuid, $info['email']]);
+            }
+
+            return false;
         }
     }
 
@@ -485,7 +501,7 @@ class SchoolsController extends Controller
 
     private function addSchoolDescriptionInfo($info)
     {
-        print_r($info['description']);
+        //print_r($info['description']);
         $descr = new Descriptions;
         $descr->description = $info['description'];
         $descr->mission = $info['mission'];
@@ -534,5 +550,84 @@ class SchoolsController extends Controller
                 $query = DB::insert('insert into social_links (school_id, social_link, social_link_type) values (?,?,?)', [$uuid, $val, $id]);
             }
         }
+    }
+
+    public function addSchoolLocation(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = $this->addSchoolLocationInfo($req->post());
+            return $this->sendResponse($data, 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
+
+    private function addSchoolLocationInfo($info)
+    {
+        $location = new Locations;
+        $location->school_id = $info['uuid'];
+        $location->lng = $this->addLng($info['lng']);
+        $location->lat = $info['lat'];
+        $location->google_map_query = $info['place'];
+        $location->location_data = $info['locationData'];
+        $location->iframeSrc = $info['embeddedURL'];
+
+        $location->save();
+    }
+
+    private function addLng($lng)
+    {
+        $val = explode('.', $lng);
+        $newVal = (int)$val[1] + 1700;
+        return $val[0] . '.' . $newVal;
+    }
+
+    public function addSchoolImages(Request $req)
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $info = $req->post();
+            if (!empty($info['uuid'])) {
+                $category = $this->getSchoolCategoryById($info['uuid']);
+                //print_r($req->post());
+                $folder = $this->checkIfFolderExist($category, $info['uuid']);
+
+                $uploadedFiles = $req->file('compressedFiles');
+                $i = 0;
+                foreach ($uploadedFiles as $key => $file) {
+                    $path = $file->store($folder[0]);
+                    $fileName = explode('/', $path);
+                    // /print_r(end($logoFileName));
+                    //$this->updateLogoPath($info['uuid'], $folder[1] . '/' . end($logoFileName));
+                    $this->insertImagePath($info['uuid'], $i, $folder[1] . '/' . end($fileName));
+                    $i++;
+                }
+                return $this->sendResponse($category, 200);
+            }
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
+        }
+    }
+
+    private function getSchoolCategoryById($uuid)
+    {
+        $res = DB::table('categories')
+            ->leftJoin('schools_categories', 'categories.category_id', '=', 'schools_categories.category_id')
+            ->where('schools_categories.school_id', '=', $uuid)
+            ->limit(1)
+            ->orderBy('categories.order', 'asc')
+            ->get(['categories.category_id']);
+
+        foreach ($res as $r) {
+            $category = $r->category_id;
+        }
+        return $category;
+    }
+
+    private function insertImagePath($uuid, $index, $path)
+    {
+        DB::insert(
+            'insert into images (school_id, orders, image) values(?,?,?)',
+            [$uuid, $index, $path]
+        );
     }
 }
