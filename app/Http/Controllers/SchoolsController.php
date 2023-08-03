@@ -505,22 +505,21 @@ class SchoolsController extends Controller
         $descr = new Descriptions;
         $descr->description = empty($info['description']) ? '' : $info['description'];
         $descr->mission = empty($info['mission']) ? '' : ($info['mission']);
-        $descr->operating_hours = empty($info['operating_hours']) ? '' : $info['operating_hours'];
         $descr->additional_class = empty($info['additional_class']) ? '' : nl2br($info['additional_class']);
-        $descr->curriculum = empty($info['curriculum']) ? '' : $info['curriculum'];
-        $descr->facility = empty($info['facility']) ? '' : $info['facility'];
+        $descr->curriculum = empty($info['curriculum']) ? '' : nl2br($info['curriculum']);
+        $descr->facility = empty($info['facility']) ? '' : nl2br($info['facility']);
         $descr->learning_focus = empty($info['learning_focus']) ? '' : $info['learning_focus'];
-        $descr->operating_hours = empty($info['operating_hours']) ? '' : $info['operating_hours'];
-        $descr->level_of_education = empty($info['level_of_education']) ? '' : $info['level_of_education'];
-        $descr->schedule = empty($info['schedule']) ? '' : $info['schedule'];
-        $descr->fees = empty($info['fees']) ? '' : $info['fees'];
+        $descr->operating_hours = empty($info['operating_hours']) ? '' : nl2br($info['operating_hours']);
+        $descr->level_of_education = empty($info['level_of_education']) ? '' : nl2br($info['level_of_education']);
+        $descr->schedule = empty($info['schedule']) ? '' : nl2br($info['schedule']);
+        $descr->fees = empty($info['fees']) ? '' : nl2br($info['fees']);
         $descr->min_fee = empty($info['min_fee']) ? 0 : $info['min_fee'];
         $descr->max_fee = empty($info['max_fee']) ? 0 : $info['max_fee'];
-        $descr->class_size = empty($info['class_size']) ? '' : $info['class_size'];
-        $descr->centre_size = empty($info['centre_size']) ? '' : $info['centre_size'];
-        $descr->medium_communication = empty($info['medium_communication']) ? '' : $info['medium_communication'];
+        $descr->class_size = empty($info['class_size']) ? '' : nl2br($info['class_size']);
+        $descr->centre_size = empty($info['centre_size']) ? '' : nl2br($info['centre_size']);
+        $descr->medium_communication = empty($info['medium_communication']) ? '' : nl2br($info['medium_communication']);
         $descr->vision = empty($info['vision']) ? '' : $info['vision'];
-        $descr->available_class = empty($info['available_class']) ? '' : $info['available_class'];
+        $descr->available_class = empty($info['available_class']) ? '' : nl2br($info['available_class']);
 
         $descr->save();
 
