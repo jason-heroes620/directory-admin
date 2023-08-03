@@ -503,8 +503,8 @@ class SchoolsController extends Controller
     {
         //print_r($info['description']);
         $descr = new Descriptions;
-        $descr->description = $info['description'];
-        $descr->mission = $info['mission'];
+        $descr->description = empty($info['description']) ? '' : $info['description'];
+        $descr->mission = empty($info['mission']) ? '' : ($info['mission']);
         $descr->operating_hours = empty($info['operating_hours']) ? '' : $info['operating_hours'];
         $descr->additional_class = empty($info['additional_class']) ? '' : nl2br($info['additional_class']);
         $descr->curriculum = empty($info['curriculum']) ? '' : $info['curriculum'];
