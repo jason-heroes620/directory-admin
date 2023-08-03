@@ -519,6 +519,8 @@ class SchoolsController extends Controller
         $descr->class_size = empty($info['class_size']) ? '' : $info['class_size'];
         $descr->centre_size = empty($info['centre_size']) ? '' : $info['centre_size'];
         $descr->medium_communication = empty($info['medium_communication']) ? '' : $info['medium_communication'];
+        $descr->vision = empty($info['vision']) ? '' : $info['vision'];
+        $descr->available_class = empty($info['available_class']) ? '' : $info['available_class'];
 
         $descr->save();
 
