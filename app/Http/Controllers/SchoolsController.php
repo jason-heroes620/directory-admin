@@ -379,6 +379,16 @@ class SchoolsController extends Controller
                     $logoFileName = explode('/', $path);
                     $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
                 }
+                if (!empty($req->file('logoCompressed'))) {
+                    $path = $req->file('logoCompressed')->store($folder[0]);
+                    $logoFileName = explode('/', $path);
+                    $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
+                }
+                if (!empty($req->file('banner'))) {
+                    $path = $req->file('banner')->store($folder[0]);
+                    $logoFileName = explode('/', $path);
+                    $this->updateBannerPath($uuid, $folder[1] . '/' . end($logoFileName));
+                }
                 return $this->sendResponse(['uuid' => $uuid], 200);
             } else {
                 return $this->sendError('', ['error' => 'School already exist.'], 400);
@@ -444,6 +454,11 @@ class SchoolsController extends Controller
     private function updateLogoPath($uuid, $path)
     {
         $result = DB::update('update schools set logo = ? where school_id = ?', [$path, $uuid]);
+    }
+
+    private function updateBannerPath($uuid, $path)
+    {
+        $result = DB::update('update schools set banner = ? where school_id = ?', [$path, $uuid]);
     }
 
     private function createUUID()
@@ -545,8 +560,7 @@ class SchoolsController extends Controller
         foreach ($infos as $key => $val) {
             if (!empty($val) && $key != 'uuid') {
                 $r = DB::table('social_link_types')->where('type', '=', $key)->get(['social_link_type_id']);
-                $id = $r[0]->social_link_type_id;
-                print_r($id);
+                $id = empty($r[0]->social_link_type_id) ? 1 : $r[0]->social_link_type_id;
 
                 $query = DB::insert('insert into social_links (school_id, social_link, social_link_type) values (?,?,?)', [$uuid, $val, $id]);
             }
