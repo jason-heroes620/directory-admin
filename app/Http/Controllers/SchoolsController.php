@@ -175,6 +175,7 @@ class SchoolsController extends Controller
                 $school['class_size'] = $desc->class_size;
                 $school['centre_size'] = $desc->centre_size;
                 $school['medium_communication'] = $desc->medium_communication;
+                $school['available_class'] = $desc->available_class;
             }
         }
 
@@ -532,9 +533,11 @@ class SchoolsController extends Controller
         $descr->max_fee = empty($info['max_fee']) ? 0 : $info['max_fee'];
         $descr->class_size = empty($info['class_size']) ? '' : nl2br($info['class_size']);
         $descr->centre_size = empty($info['centre_size']) ? '' : nl2br($info['centre_size']);
-        $descr->medium_communication = empty($info['medium_communication']) ? '' : nl2br($info['medium_communication']);
+
         $descr->vision = empty($info['vision']) ? '' : $info['vision'];
         $descr->available_class = empty($info['available_class']) ? '' : nl2br($info['available_class']);
+
+        $descr->medium_communication = empty($info['medium_communication']) ? '' : $this->getMediumOfCommunication(($info['medium_communication']));
 
         $descr->save();
 
@@ -542,6 +545,35 @@ class SchoolsController extends Controller
             'insert into schools_descriptions (school_id, description_id) values(?,?)',
             [$info['uuid'], $descr->id]
         );
+    }
+    private function getMediumOfCommunication($languages)
+    {
+        $arr = json_decode($languages, true);
+        $lang = '';
+        //print_r($arr);
+        foreach ($arr as $key => $val) {
+            print_r($key . " => " . $val);
+            if ($val == 1) {
+                print_r('in ');
+                switch ($key) {
+                    case 'en':
+                        $lang .= 'English';
+                        print_r($lang);
+                        break;
+                    case 'bm':
+                        $lang .= 'Bahasa Malaysia';
+                        break;
+                    case 'ma':
+                        $lang .= 'Mandarin';
+                        break;
+                    default:
+                        break;
+                }
+                $lang .= ', ';
+            }
+        }
+        print_r('lang => ' . $lang);
+        return substr($lang, 0, -2);
     }
 
     public function addSchoolSocialLinks(Request $req)
