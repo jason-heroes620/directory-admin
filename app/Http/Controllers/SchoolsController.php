@@ -376,17 +376,12 @@ class SchoolsController extends Controller
             if (!$exist) {
                 $folder = $this->checkIfFolderExist($data['category'], $uuid);
                 if (!empty($req->file('logoCompressed'))) {
-                    $path = $req->file('logoCompressed')->store($folder[0]);
-                    $logoFileName = explode('/', $path);
-                    $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
-                }
-                if (!empty($req->file('logoCompressed'))) {
-                    $path = $req->file('logoCompressed')->store($folder[0]);
+                    $path = $req->file('logoCompressed')->storeAs($folder[0], 'public');
                     $logoFileName = explode('/', $path);
                     $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
                 }
                 if (!empty($req->file('banner'))) {
-                    $path = $req->file('banner')->store($folder[0]);
+                    $path = $req->file('banner')->storeAs($folder[0], 'public');
                     $logoFileName = explode('/', $path);
                     $this->updateBannerPath($uuid, $folder[1] . '/' . end($logoFileName));
                 }
@@ -552,9 +547,8 @@ class SchoolsController extends Controller
         $lang = '';
         //print_r($arr);
         foreach ($arr as $key => $val) {
-            print_r($key . " => " . $val);
             if ($val == 1) {
-                print_r('in ');
+
                 switch ($key) {
                     case 'en':
                         $lang .= 'English';
@@ -572,7 +566,7 @@ class SchoolsController extends Controller
                 $lang .= ', ';
             }
         }
-        print_r('lang => ' . $lang);
+
         return substr($lang, 0, -2);
     }
 
@@ -641,7 +635,7 @@ class SchoolsController extends Controller
                 $uploadedFiles = $req->file('compressedFiles');
                 $i = 0;
                 foreach ($uploadedFiles as $key => $file) {
-                    $path = $file->store($folder[0]);
+                    $path = $file->storeAs($folder[0], 'public');
                     $fileName = explode('/', $path);
                     // /print_r(end($logoFileName));
                     //$this->updateLogoPath($info['uuid'], $folder[1] . '/' . end($logoFileName));
