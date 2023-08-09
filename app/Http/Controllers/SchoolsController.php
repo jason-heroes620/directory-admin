@@ -376,12 +376,12 @@ class SchoolsController extends Controller
             if (!$exist) {
                 $folder = $this->checkIfFolderExist($data['category'], $uuid);
                 if (!empty($req->file('logoCompressed'))) {
-                    $path = $req->file('logoCompressed')->storeAs($folder[0], 'public');
+                    $path = $req->file('logoCompressed')->store($folder[0], 'public');
                     $logoFileName = explode('/', $path);
                     $this->updateLogoPath($uuid, $folder[1] . '/' . end($logoFileName));
                 }
                 if (!empty($req->file('banner'))) {
-                    $path = $req->file('banner')->storeAs($folder[0], 'public');
+                    $path = $req->file('banner')->store($folder[0], 'public');
                     $logoFileName = explode('/', $path);
                     $this->updateBannerPath($uuid, $folder[1] . '/' . end($logoFileName));
                 }
@@ -635,7 +635,7 @@ class SchoolsController extends Controller
                 $uploadedFiles = $req->file('compressedFiles');
                 $i = 0;
                 foreach ($uploadedFiles as $key => $file) {
-                    $path = $file->storeAs($folder[0], 'public');
+                    $path = $file->store($folder[0], 'public');
                     $fileName = explode('/', $path);
                     // /print_r(end($logoFileName));
                     //$this->updateLogoPath($info['uuid'], $folder[1] . '/' . end($logoFileName));
