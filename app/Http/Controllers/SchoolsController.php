@@ -13,6 +13,7 @@ use App\Models\Schools;
 use App\Models\SocialLinks;
 use App\Models\Locations;
 use Ramsey\Uuid\Type\Decimal;
+use Illuminate\Database\QueryException;
 
 class SchoolsController extends Controller
 {
@@ -26,9 +27,37 @@ class SchoolsController extends Controller
     public function schools(Request $req)
     {
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $data = $this->getAllSchools($req->page, htmlspecialchars_decode($req->search));
+            // $data = $this->getAllSchools($req->page, htmlspecialchars_decode($req->search));
+            if (isset($req->school_id)) {
+                $data = $this->getSchoolById($req->school_id, $req->edit);
+            } else {
+                $data = $this->getSchools($req->page, htmlspecialchars_decode($req->search), $req->category);
+            }
 
             return $this->sendResponse($data, 200);
+        } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($req->type == 'basic') {
+                $data = $req->post();
+                $folder = $this->checkIfFolderExist($data['category'], $req->school_id);
+                if (!empty($req->file('logoCompressed'))) {
+                    $path = $req->file('logoCompressed')->store($folder[0], 'public');
+                    $logoFileName = explode('/', $path);
+                    $this->updateLogoPath($req->school_id, $folder[1] . '/' . end($logoFileName));
+                }
+                if (!empty($req->file('banner'))) {
+                    $path = $req->file('banner')->store($folder[0], 'public');
+                    $logoFileName = explode('/', $path);
+                    $this->updateBannerPath($req->school_id, $folder[1] . '/' . end($logoFileName));
+                }
+                $data = $this->updateSchoolBasic($req->post(), $req->school_id);
+            } elseif ($req->type == 'description') {
+                $data = $this->updateSchoolDescription($req->post(), $req->description_id);
+            } elseif ($req->type == 'socialLink') {
+                $data = $this->updateSchoolSocialLink($req->post(), $req->school_id);
+            } elseif ($req->type == 'location') {
+                $data = $this->updateSchoolLocation($req->post(), $req->school_id);
+            }
+            return $this->sendResponse([$data], 200);
         } else {
             return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
         }
@@ -44,6 +73,36 @@ class SchoolsController extends Controller
         } else {
             return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
         }
+    }
+
+    public function totalSchools()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $data = $this->getTotalSchools();
+            return $this->sendResponse($data, 200);
+        } else {
+            return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
+        }
+    }
+
+    private function getTotalSchools()
+    {
+        $totalSchool = 0;
+        $totalNonSchool = 0;
+
+        $totalSchool = DB::table('schools')
+            ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+            ->where('schools.status', '=', 0)
+            ->whereIn('schools_categories.category_id', [1, 2, 6])
+            ->distinct('schools.school_id')->count();
+
+        $totalNonSchool = DB::table('schools')
+            ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+            ->where('schools.status', '=', 0)
+            ->whereIn('schools_categories.category_id', [3, 4])
+            ->distinct('schools.school_id')->count();
+
+        return ['school' => $totalSchool, 'nonSchool' => $totalNonSchool];
     }
 
     public function filters(Request $req)
@@ -62,6 +121,93 @@ class SchoolsController extends Controller
         } else {
             return $this->sendError('', ['error' => 'Allowed headers GET'], 405);
         }
+    }
+
+    private function getSchools($page, $search, $category)
+    {
+        $perPage = 10;
+        $schools = array();
+        $locations = array();
+
+        $query = DB::table('schools')
+            ->where('status', '=', 0);
+
+        if (!empty($category)) {
+            if ($category !== '0' && $category != '') {
+                $query->join('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                    ->where('schools_categories.category_id', '=', $category)
+                    ->where('schools.status', '=', 0);
+            } else {
+                $query->where('status', '=', 0);
+            }
+        }
+
+        if ($search != '') {
+            $query = $query->where("schools.school", '=', $search);
+        }
+
+        $locationResult = $query->get();
+        foreach ($locationResult as $r) {
+            $res = DB::table('locations')
+                ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
+                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
+                ->where("schools.school_id", '=', $r->school_id)
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
+
+            foreach ($res as $r) {
+                $location['school_id'] = $r->school_id;
+                $location['school'] = $r->school;
+                $location['color'] = $r->color;
+                $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
+                $location['lat'] = $r->lat;
+                $location['lng'] = $r->lng;
+
+                $locations[] = $location;
+            }
+        }
+
+        $total = $query->count();
+
+        $results = $query->orderBy('school')
+            ->offset($page * $perPage)->limit($perPage)
+            ->get();
+
+        foreach ($results as $result) {
+            $school['school_id'] = $result->school_id;
+            $school['school'] = $result->school;
+            $school['logo'] = $this->url . '/' . $result->logo;
+
+            $school['contacts'] = DB::table('contacts')
+                ->where('school_id', '=', $result->school_id)
+                ->where('status', '=', 0)
+                ->get();
+
+            $school['social_links'] = DB::table('social_links')
+                ->leftJoin(
+                    'social_link_types',
+                    'social_links.social_link_type',
+                    '=',
+                    'social_link_types.social_link_type_id'
+                )
+                ->where('social_links.main', '=', 0)
+                ->where('social_links.school_id', '=', $result->school_id)
+                ->orderBy('social_link_types.orders')
+                ->get(['social_links.social_link', 'social_link_types.type']);
+
+            $schools[] = $school;
+        }
+
+        $records = ($page == 0 ? $page + 1 : ($page * $perPage) + 1) . " - " .
+            (($page * $perPage) + $perPage > $total ? $total : ($page * $perPage) + $perPage);
+
+        return [
+            'total' => $total,
+            'data' => ['schools' => $schools, 'locations' => $locations],
+            'page' => $page,
+            'last_page' => ceil($total / $perPage),
+            'records' => $records
+        ];
     }
 
     private function getAllSchools($page, $search)
@@ -139,16 +285,17 @@ class SchoolsController extends Controller
         ];
     }
 
-    private function getSchoolById($schoolId)
+    private function getSchoolById($schoolId, $edit = false)
     {
         $results = DB::table('schools')
             ->where('school_id', '=', $schoolId)
-            ->get();
+            ->get(['school_id', 'school', 'status', 'logo', 'banner']);
 
         foreach ($results as $res) {
             $school['school'] = $res->school;
             $school['logo'] = ($res->logo != '' ? $this->url . '/' . $res->logo : '');
             $school['banner'] = ($res->banner != '' ? $this->url . '/' . $res->banner : '');
+            $school['status'] = $res->status;
 
             $descriptions = DB::table('descriptions')
                 ->leftJoin(
@@ -160,15 +307,17 @@ class SchoolsController extends Controller
                 ->where("school_id", '=', $res->school_id)
                 ->get();
             foreach ($descriptions as $desc) {
+                $school['description_id'] = $desc->description_id;
                 $school['description'] = $desc->description;
                 $school['min_fee'] = $desc->min_fee;
                 $school['max_fee'] = $desc->max_fee;
                 $school['mission'] = $desc->mission;
+                $school['vision'] = $desc->vision;
                 $school['operating_hours'] = $desc->operating_hours;
                 $school['level_of_education'] = $desc->level_of_education;
                 $school['schedule'] = $desc->schedule;
                 $school['fees'] = $desc->fees;
-                $school['additional_class'] = $desc->additional_class;
+                $school['additional_class'] =  !$edit ? str_replace("\n", "<br />", $desc->additional_class) : $desc->additional_class;
                 $school['facility'] = $desc->facility;
                 $school['curriculum'] = $desc->curriculum;
                 $school['learning_focus'] = $desc->learning_focus;
@@ -191,6 +340,16 @@ class SchoolsController extends Controller
         }
         $school['images'] = $images;
 
+        $school['category'] = DB::table('schools_categories')
+            ->leftJoin(
+                'categories',
+                'categories.category_id',
+                '=',
+                'schools_categories.category_id'
+            )
+            ->where('schools_categories.school_id', '=', $schoolId)
+            ->get(['categories.category', 'categories.category_id']);
+
         $school['sub_categories'] = DB::table('schools_sub_categories')
             ->leftJoin(
                 'sub_categories',
@@ -199,7 +358,7 @@ class SchoolsController extends Controller
                 'schools_sub_categories.sub_category_id'
             )
             ->where('schools_sub_categories.school_id', '=', $schoolId)
-            ->get('sub_categories.sub_category');
+            ->get(['sub_categories.sub_category', 'sub_categories.sub_category_id']);
 
         $res = DB::table('contacts')
             ->where('school_id', '=', $schoolId)
@@ -212,6 +371,7 @@ class SchoolsController extends Controller
             $contact['address1'] = $r->address1;
             $contact['address2'] = $r->address2;
             $contact['address3'] = $r->address3;
+            $contact['city'] = $r->city;
             $contact['postcode'] = $r->postcode;
             $contact['state'] = $r->state;
             $contact['contact_person'] = $r->contact_person;
@@ -265,8 +425,7 @@ class SchoolsController extends Controller
             ->limit(1)
             ->get(['location_id', 'iframeSrc', 'lng', 'lat', 'google_map_query', 'location_data']);
         foreach ($res as $r) {
-            $school['location_id'] = $r->location_id;
-            $school['iframeSrc'] = $r->iframeSrc;
+            $location['iframeSrc'] = $r->iframeSrc;
             $location['location_id'] = $r->location_id;
             $location['position'] = array('lng' => (float)$r->lng, 'lat' => (float)$r->lat);
             $location['lat'] = (float)$r->lat;
@@ -405,8 +564,11 @@ class SchoolsController extends Controller
         if ($exist->count() > 0) {
             return true;
         } else {
-            $result = DB::insert('insert into schools
-        (school_id, school, logo, banner, status) values (?, ?, ?, ?, ?)', [$uuid, $info['school'], '', '', 1]);
+            $result = DB::insert(
+                'insert into schools
+        (school_id, school, logo, banner, status) values (?, ?, ?, ?, ?)',
+                [$uuid, $info['school'], '', '', $info['status']]
+            );
 
             // insert categories
             if ($info['category'] != '0') {
@@ -503,8 +665,8 @@ class SchoolsController extends Controller
     public function addSchoolDescription(Request $req)
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->addSchoolDescriptionInfo($req->post());
-            return $this->sendResponse('', 200);
+            $id = $this->addSchoolDescriptionInfo($req->post());
+            return $this->sendResponse(['descriptionId' => $id], 200);
         } else {
             return $this->sendError('', ['error' => 'Allowed headers POST'], 405);
         }
@@ -512,7 +674,6 @@ class SchoolsController extends Controller
 
     private function addSchoolDescriptionInfo($info)
     {
-        //print_r($info['description']);
         $descr = new Descriptions;
         $descr->description = empty($info['description']) ? '' : $info['description'];
         $descr->mission = empty($info['mission']) ? '' : ($info['mission']);
@@ -528,31 +689,30 @@ class SchoolsController extends Controller
         $descr->max_fee = empty($info['max_fee']) ? 0 : $info['max_fee'];
         $descr->class_size = empty($info['class_size']) ? '' : nl2br($info['class_size']);
         $descr->centre_size = empty($info['centre_size']) ? '' : nl2br($info['centre_size']);
-
         $descr->vision = empty($info['vision']) ? '' : $info['vision'];
         $descr->available_class = empty($info['available_class']) ? '' : nl2br($info['available_class']);
-
-        $descr->medium_communication = empty($info['medium_communication']) ? '' : $this->getMediumOfCommunication(($info['medium_communication']));
+        $descr->medium_communication = empty($info['medium_communication'])
+            ? '' : $this->getMediumOfCommunication(($info['medium_communication']));
 
         $descr->save();
 
-        $query = DB::insert(
+        DB::insert(
             'insert into schools_descriptions (school_id, description_id) values(?,?)',
             [$info['uuid'], $descr->id]
         );
+
+        return $descr->id;
     }
     private function getMediumOfCommunication($languages)
     {
         $arr = json_decode($languages, true);
         $lang = '';
-        //print_r($arr);
         foreach ($arr as $key => $val) {
             if ($val == 1) {
 
                 switch ($key) {
                     case 'en':
                         $lang .= 'English';
-                        print_r($lang);
                         break;
                     case 'bm':
                         $lang .= 'Bahasa Malaysia';
@@ -588,7 +748,7 @@ class SchoolsController extends Controller
                 $r = DB::table('social_link_types')->where('type', '=', $key)->get(['social_link_type_id']);
                 $id = empty($r[0]->social_link_type_id) ? 1 : $r[0]->social_link_type_id;
 
-                $query = DB::insert('insert into social_links (school_id, social_link, social_link_type) values (?,?,?)', [$uuid, $val, $id]);
+                DB::insert('insert into social_links (school_id, social_link, social_link_type) values (?,?,?)', [$uuid, $val, $id]);
             }
         }
     }
@@ -619,7 +779,8 @@ class SchoolsController extends Controller
     private function addLng($lng)
     {
         $val = explode('.', $lng);
-        $newVal = (int)$val[1] + 1700;
+        // $newVal = (int)$val[1] + 1700;
+        $newVal = (int)$val[1] + (strlen($val[1]) == 7 ? 1700 : 170);
         return $val[0] . '.' . $newVal;
     }
 
@@ -670,5 +831,140 @@ class SchoolsController extends Controller
             'insert into images (school_id, orders, image) values(?,?,?)',
             [$uuid, $index, $path]
         );
+    }
+
+    private function updateSchoolBasic($info, $schoolId)
+    {
+        try {
+            DB::table('schools')
+                ->where('school_id', $schoolId)
+                ->update(['status' => $info['status']]);
+
+            DB::table('schools_categories')
+                ->updateOrInsert(
+                    [
+                        'school_id' => $schoolId
+                    ],
+                    ['category_id' => $info['category']]
+                );
+
+            DB::table('schools_sub_categories')
+                ->updateOrInsert(
+                    [
+                        'school_id' => $schoolId
+                    ],
+                    ['sub_category_id' => $info['subcategory']]
+                );
+
+            DB::table('contacts')
+                ->updateOrInsert(
+                    [
+                        'school_id' => $schoolId
+                    ],
+                    [
+                        'address1' => empty($info['address1']) ? '' : $info['address1'],
+                        'address2' => empty($info['address2']) ? '' : $info['address2'],
+                        'address3' => empty($info['address3']) ? '' : $info['address3'],
+                        'postcode' => empty($info['postcode']) ? '' : $info['postcode'],
+                        'state' => empty($info['state']) ? '' : $info['state'],
+                        'city' => empty($info['city']) ? '' : $info['city'],
+                        'country' => empty($info['country']) ? '' : $info['country'],
+                        'contact_person' => empty($info['contact_person']) ? '' : $info['contact_person'],
+                        'contact_no' => empty($info['contact_no']) ? '' : $info['contact_no'],
+                    ]
+                );
+
+            DB::table('emails')
+                ->updateOrInsert(
+                    [
+                        'school_id' => $schoolId
+                    ],
+                    ['email' => empty($info['email']) ? '' : $info['email']]
+                );
+
+            return 'success';
+        } catch (QueryException $ex) {
+            return 'fail: ' . $ex->getMessage();
+        }
+    }
+
+    private function updateSchoolDescription($info, $descriptionId)
+    {
+        try {
+            DB::table('descriptions')
+                ->where('description_id', $descriptionId)
+                ->update([
+                    'level_of_education' => empty($info['level_of_education'])
+                        ? '' : nl2br($info['level_of_education']),
+                    'description' => empty($info['description']) ? '' : $info['description'],
+                    'curriculum' => empty($info['curriculum']) ? '' : nl2br($info['curriculum']),
+                    'learning_focus' => empty($info['learning_focus']) ? '' : $info['learning_focus'],
+                    'facility' => empty($info['facility']) ? '' : nl2br($info['facility']),
+                    'mission' => empty($info['mission']) ? '' : $info['mission'],
+                    'vision' => empty($info['vision']) ? '' : $info['vision'],
+                    'additional_class' => empty($info['additional_class']) ? '' : nl2br($info['additional_class']),
+                    'operating_hours' => empty($info['operating_hours']) ? '' : nl2br($info['operating_hours']),
+                    'schedule' => empty($info['schedule']) ? '' : nl2br($info['schedule']),
+                    'fees' => empty($info['fees']) ? '' : nl2br($info['fees']),
+                    'min_fee' => empty($info['min_fee']) ? 0 : $info['min_fee'],
+                    'max_fee' => empty($info['max_fee']) ? 0 : $info['max_fee'],
+                    'class_size' => empty($info['class_size']) ? '' : nl2br($info['class_size']),
+                    'centre_size' => empty($info['centre_size']) ? '' : nl2br($info['centre_size']),
+                    'available_class' => empty($info['available_class']) ? '' : nl2br($info['available_class']),
+                    'medium_communication' => $this->getMediumOfCommunication($info['medium_communication']),
+                ]);
+            return 'success';
+        } catch (QueryException $ex) {
+            return 'fail: ' . $ex->getMessage();
+        }
+    }
+
+    private function updateSchoolSocialLink($info, $schoolId)
+    {
+        try {
+            foreach ($info as $key => $val) {
+                if ($key != 'uuid') {
+                    $r = DB::table('social_link_types')->where('type', '=', $key)->get(['social_link_type_id']);
+                    $id = empty($r[0]->social_link_type_id) ? 1 : $r[0]->social_link_type_id;
+
+                    if ($val != '') {
+                        DB::table('social_links')
+                            ->updateOrInsert(
+                                [
+                                    'school_id' => $schoolId, 'social_link_type' => $id
+                                ],
+                                ['social_link' => empty($val) ? '' : $val]
+                            );
+                    } else {
+                        DB::table('social_links')
+                            ->where(
+                                [
+                                    'school_id' => $schoolId, 'social_link_type' => $id
+                                ]
+                            )->delete();
+                    }
+                }
+            }
+            return 'success';
+        } catch (QueryException $ex) {
+            return "fail: " . $ex->getMessage();
+        }
+    }
+
+    private function updateSchoolLocation($info, $schoolId)
+    {
+        try {
+            DB::table('locations')
+                ->where('school_id', $schoolId)
+                ->update([
+                    'lng' => empty($this->addLng($info['lng'])) ? '' : $this->addLng($info['lng']),
+                    'lat' => empty($info['lat']) ? '' : $info['lat'],
+                    'google_map_query' => empty($info['place']) ? '' : $info['place'],
+                    'location_data' => empty($info['locationData']) ? '' : $info['locationData'],
+                    'iframeSrc' => empty($info['embeddedURL']) ? '' : $info['embeddedURL'],
+                ]);
+        } catch (QueryException $ex) {
+            return "fail: " . $ex->getMessage();
+        }
     }
 }
