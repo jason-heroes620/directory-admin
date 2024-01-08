@@ -9,8 +9,10 @@ use App\Http\Controllers\FiltersController;
 use App\Http\Controllers\SchoolsController;
 use App\Http\Controllers\LocationsController;
 use App\Http\Controllers\EmailController;
+use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Artisan;
-
+use Illuminate\Support\Facades\Auth;
+use App\Guard\JWTGuard;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -26,12 +28,23 @@ use Illuminate\Support\Facades\Artisan;
 //     return $request->user();
 // });
 
+
+// Route::middleware('auth:jwt')->get('/user', function () {
+//     return auth('jwt')->user();
+// });
+
+// Route::post('/verify-token', [AuthController::class, 'verifyToken']);
+
+
+
 Route::group(['middleware' => 'XSS'], function () {
 
     //storage link
     Route::get('/storageLink', function () {
         Artisan::call('storage:link');
     });
+
+    // Route::post('login', [AuthController::class, 'login']);
 
     // Partner interest
     Route::post('partnerInterest', [EmailController::class, 'partnerInterest']);
@@ -42,11 +55,16 @@ Route::group(['middleware' => 'XSS'], function () {
     Route::get('filters', [FiltersController::class, 'filters']);
     Route::get('socialLinkTypes', [SocialLinkTypesController::class, 'socialLinkTypes']);
 
-    Route::get('schools/page/{page?}/search/{search?}', [SchoolsController::class, 'schools']);
-    Route::get('schools/page/{page?}', [SchoolsController::class, 'schools']);
-    Route::get('schoolById/{id?}', [SchoolsController::class, 'schoolById']);
-    Route::post('schools/filters/page/{page?}', [SchoolsController::class, 'filters']);
-    Route::post('schools/filters/page/{page?}/search/{search?}', [SchoolsController::class, 'filters']);
+    // Route::get('schools/page/{page?}/search/{search?}', [SchoolsController::class, 'schools']);
+    // Route::get('schools/page/{page?}', [SchoolsController::class, 'schools']);
+    //Route::get('schoolById/{id?}', [SchoolsController::class, 'schoolById']);
+
+    Route::get('schools', [SchoolsController::class, 'schools']);
+    Route::get('schools/totalSchools', [SchoolsController::class, 'totalSchools']);
+
+    Route::post('schools', [SchoolsController::class, 'schools']);
+    // Route::post('schools/filters/page/{page?}', [SchoolsController::class, 'filters']);
+    // Route::post('schools/filters/page/{page?}/search/{search?}', [SchoolsController::class, 'filters']);
 
     Route::post('schools/addSchoolBasic', [SchoolsController::class, 'addSchoolBasic']);
     Route::post('schools/addSchoolDescription', [SchoolsController::class, 'addSchoolDescription']);

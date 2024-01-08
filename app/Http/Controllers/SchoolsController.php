@@ -150,15 +150,16 @@ class SchoolsController extends Controller
         foreach ($locationResult as $r) {
             $res = DB::table('locations')
                 ->leftJoin('schools', 'schools.school_id', '=', 'locations.school_id')
-                ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
-                ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
+                // ->leftJoin('schools_categories', 'schools.school_id', '=', 'schools_categories.school_id')
+                // ->leftJoin('categories', 'categories.category_id', '=', 'schools_categories.category_id')
                 ->where("schools.school_id", '=', $r->school_id)
-                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat', 'categories.color']);
+                ->get(['schools.school_id', 'schools.school', 'locations.lng', 'locations.lat']);
 
             foreach ($res as $r) {
                 $location['school_id'] = $r->school_id;
                 $location['school'] = $r->school;
-                $location['color'] = $r->color;
+                // $location['color'] = $r->color;
+                $location['color'] = $this->getSchoolCategoryColor($r->school_id);
                 $location['position'] = array('lng' => $r->lng, 'lat' => $r->lat);
                 $location['lat'] = $r->lat;
                 $location['lng'] = $r->lng;
@@ -208,6 +209,16 @@ class SchoolsController extends Controller
             'last_page' => ceil($total / $perPage),
             'records' => $records
         ];
+    }
+
+    private function getSchoolCategoryColor($school_id)
+    {
+        $query = DB::table('schools_categories')
+            ->leftJoin('categories', 'schools_categories.category_id', '=', 'categories.category_id')
+            ->where('schools_categories.school_id', '=', $school_id)
+            ->limit(1)
+            ->get(['color']);
+        return $query[0]->color;
     }
 
     private function getAllSchools($page, $search)
