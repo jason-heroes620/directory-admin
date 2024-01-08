@@ -218,7 +218,7 @@ class SchoolsController extends Controller
             ->where('schools_categories.school_id', '=', $school_id)
             ->limit(1)
             ->get(['color']);
-        return $query[0]->color;
+        return !empty($query[0]->color) ? $query[0]->color : '';
     }
 
     private function getAllSchools($page, $search)
