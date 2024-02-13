@@ -143,7 +143,7 @@ class SchoolsController extends Controller
         }
 
         if ($search != '') {
-            $query = $query->where("schools.school", '=', $search);
+            $query = $query->where("schools.school", '=', $search)->orWhere('schools.school', 'like', '%'.$search.'%');
         }
 
         $locationResult = $query->get();
