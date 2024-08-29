@@ -34,7 +34,8 @@ class SchoolsController extends Controller
                 $data = $this->getSchools($req->page, htmlspecialchars_decode($req->search), $req->category);
             }
 
-            return $this->sendResponse($data, 200);
+            // return $this->sendResponse($data, 200);
+            return $this->sendResponse([], 200);
         } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($req->type == 'basic') {
                 $data = $req->post();
@@ -143,7 +144,7 @@ class SchoolsController extends Controller
         }
 
         if ($search != '') {
-            $query = $query->where("schools.school", '=', $search)->orWhere('schools.school', 'like', '%'.$search.'%');
+            $query = $query->where("schools.school", '=', $search)->orWhere('schools.school', 'like', '%' . $search . '%');
         }
 
         $locationResult = $query->get();
@@ -598,7 +599,8 @@ class SchoolsController extends Controller
             (school_id, address1, address2, address3, city, postcode, state, country, contact_person, contact_no)
             values(?,?,?,?,?,?,?,?,?,?)',
                 [
-                    $uuid, $this->checkEmptyValue($info['address1']),
+                    $uuid,
+                    $this->checkEmptyValue($info['address1']),
                     $this->checkEmptyValue($info['address2']),
                     $this->checkEmptyValue($info['address3']),
                     $this->checkEmptyValue($info['city']),
@@ -942,7 +944,8 @@ class SchoolsController extends Controller
                         DB::table('social_links')
                             ->updateOrInsert(
                                 [
-                                    'school_id' => $schoolId, 'social_link_type' => $id
+                                    'school_id' => $schoolId,
+                                    'social_link_type' => $id
                                 ],
                                 ['social_link' => empty($val) ? '' : $val]
                             );
@@ -950,7 +953,8 @@ class SchoolsController extends Controller
                         DB::table('social_links')
                             ->where(
                                 [
-                                    'school_id' => $schoolId, 'social_link_type' => $id
+                                    'school_id' => $schoolId,
+                                    'social_link_type' => $id
                                 ]
                             )->delete();
                     }
